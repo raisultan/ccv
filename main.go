@@ -17,6 +17,12 @@ type Bank struct {
 func main() {
 	fmt.Println("Welcome to the Interstellar Credit Card Validator")
 
+	banks, err := loadBankData("banks.txt")
+	if err != nil {
+		fmt.Println("Error loading bank data:", err)
+		return
+	}
+
 	for {
 		cardNumber := getUserInput()
 		if cardNumber == "" {
@@ -36,7 +42,6 @@ func main() {
 		}
 
 		bin := extractBIN(cardNumber)
-		banks := loadBankData("banks.txt")
 		bank := identifyBank(bin, banks)
 
 		fmt.Printf("The credit card number is valid.\n")
@@ -56,6 +61,14 @@ func getUserInput() string {
 }
 
 func validateInput(input string) bool {
+	if len(input) < 13 || len(input) > 19 {
+		return false
+	}
+	for _, ch := range input {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
 	return true
 }
 
@@ -68,6 +81,9 @@ func validateLuhn(cardNumber string) bool {
 
 		if isEven {
 			digit *= 2
+			if digit > 9 {
+				digit -= 9
+			}
 		}
 
 		sum += digit
@@ -82,8 +98,11 @@ func extractBIN(cardNumber string) int {
 	return bin
 }
 
-func loadBankData(filename string) []Bank {
-	file, _ := os.Open(filename)
+func loadBankData(filename string) ([]Bank, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
 	defer file.Close()
 
 	var banks []Bank
@@ -94,13 +113,18 @@ func loadBankData(filename string) []Bank {
 		if len(parts) != 3 {
 			continue
 		}
-		name := parts[0]
-		binFrom, _ := strconv.Atoi(parts[1])
-		binTo, _ := strconv.Atoi(parts[2])
-		banks = append(banks, Bank{Name: name, BinFrom: binFrom, BinTo: binTo})
+		binFrom, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
+		binTo, err := strconv.Atoi(parts[2])
+		if err != nil {
+			continue
+		}
+		banks = append(banks, Bank{Name: parts[0], BinFrom: binFrom, BinTo: binTo})
 	}
 
-	return banks
+	return banks, nil
 }
 
 func identifyBank(bin int, banks []Bank) string {
